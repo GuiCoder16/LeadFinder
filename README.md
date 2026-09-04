@@ -74,8 +74,13 @@ O sistema foi desenvolvido com foco não apenas na funcionalidade, mas também e
                     └────────┬────────┘
                              │
                              ▼
+                    ┌─────────────────┐
+                    │ Exportação CSV  │
+                    │      / XLSX     │
+                    └─────────────────┘
 
-                             ✨ Funcionalidades
+✨ Funcionalidades
+
 🔍 Busca de empresas
 
 Permite pesquisar empresas por categoria e localização utilizando dados públicos do OpenStreetMap através do Overpass API.
@@ -385,7 +390,4 @@ docs/
 ├── TESTING.md
 ├── SPRINTS.md
 └── ROADMAP.md
-                    ┌─────────────────┐
-                    │ Exportação CSV  │
-                    │      / XLSX     │
-                    └─────────────────┘
+                    
