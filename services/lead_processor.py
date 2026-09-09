@@ -47,8 +47,6 @@ class LeadProcessor:
                 continue
 
             nome = LeadProcessor._safe_text(tags.get("name"), default="")
-            if not nome:
-                continue
 
             raw_id = elemento.get("id")
             id_osm = LeadProcessor._safe_text(

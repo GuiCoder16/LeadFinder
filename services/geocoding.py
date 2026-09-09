@@ -67,7 +67,9 @@ class GeocodingService:
                 
             except requests.exceptions.Timeout:
                 if tentativa == GeocodingService.MAX_RETRIES: return None, None
-            except requests.exceptions.RequestException:
+            except requests.exceptions.RequestException as e:
+                status_code = getattr(e.response, 'status_code', 'N/A') if hasattr(e, 'response') else 'N/A'
+                print(f"[GEOCODING ERROR] Tentativa {tentativa}/{GeocodingService.MAX_RETRIES} falhou. Status HTTP: {status_code} | Causa: {type(e).__name__} | Detalhe: {str(e)}")
                 if tentativa == GeocodingService.MAX_RETRIES: return None, None
             except json.JSONDecodeError:
                 return None, None

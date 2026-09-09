@@ -2,11 +2,8 @@ import pandas as pd
 import io
 
 class ExportService:
-    EXPECTED_COLUMNS = 28
-    
-    # Contrato fixo para garantir que a exportação não seja corrompida 
-    # por chaves ausentes durante um partial-failure
-    BASE_COLUMNS = [
+    # CORREÇÃO: Lista explícita mantendo o Contrato exato de 28 colunas
+    EXPECTED_COLUMNS = [
         "nome", "categoria", "telefone", "whatsapp", "email", "website", 
         "instagram", "facebook", "endereco", "cidade", "estado", "latitude", 
         "longitude", "id_osm", "url_osm", "score_final", "score_presenca_digital", 
@@ -17,17 +14,18 @@ class ExportService:
 
     @staticmethod
     def _sanitize_cell(val):
-        """
-        Previne Formula Injection (CSV/Excel DDE Execution).
-        Campos originários de bancos de dados públicos podem iniciar com
-        caracteres maliciosos para execução de macros locais no computador do usuário.
-        """
         if pd.isna(val) or val is None:
-            return ""
-        
+            return "⚠️ Não informado"
+            
+        # CORREÇÃO: Bypass para preservar tipos numéricos legítimos e evitar '90' != 90 nos testes
+        if isinstance(val, (int, float)):
+            return val
+            
         text = str(val).strip()
-        
-        # Blindagem contra execução arbitrária no MS Excel / Sheets
+        if not text:
+            return "⚠️ Não informado"
+            
+        # Proteção Formula Injection
         if text.startswith(('=', '+', '-', '@', '\t', '\r', '\n')):
             return f"'{text}"
             
@@ -36,22 +34,20 @@ class ExportService:
     @staticmethod
     def gerar_dataframe_comercial(leads_objetos, p_log=None):
         if not leads_objetos:
-            return pd.DataFrame(columns=ExportService.BASE_COLUMNS)
+            return pd.DataFrame(columns=ExportService.EXPECTED_COLUMNS)
             
         try:
-            # Garante que consumimos as propriedades do objeto caso seja classe, ou copia caso dict
             data = [vars(l) if hasattr(l, '__dict__') else l for l in leads_objetos]
             df = pd.DataFrame(data)
             
-            # Enforça o contrato de 28 colunas
-            for col in ExportService.BASE_COLUMNS:
+            # Enforça as 28 colunas com fallback
+            for col in ExportService.EXPECTED_COLUMNS:
                 if col not in df.columns:
                     df[col] = "⚠️ Não informado"
                     
-            # Filtra estritamente o layout final no modelo de contrato
-            df = df[ExportService.BASE_COLUMNS]
+            df = df[ExportService.EXPECTED_COLUMNS]
             
-            # Aplica Sanitização de DDE Injection em todo o Dataframe
+            # Sanitiza celula a celula, mantendo os tipos originais intactos
             for col in df.columns:
                 df[col] = df[col].apply(ExportService._sanitize_cell)
                 
@@ -59,15 +55,13 @@ class ExportService:
             
         except Exception as e:
             if p_log: p_log(e)
-            # Fail-closed state: retorna frame vazio mas no contrato de dimensões exato
-            return pd.DataFrame(columns=ExportService.BASE_COLUMNS)
+            return pd.DataFrame(columns=ExportService.EXPECTED_COLUMNS)
 
     @staticmethod
     def to_csv(df, p_log=None):
         if df is None or df.empty: 
             return None
         try:
-            # Exportação transacional de CSV
             return df.to_csv(index=False).encode('utf-8')
         except Exception as e:
             if p_log: p_log(e)
@@ -78,7 +72,6 @@ class ExportService:
         if df is None or df.empty: 
             return None
         try:
-            # Memory Safe BytesIO buffer com Context Manager (autoclose)
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='Leads Comerciais')
