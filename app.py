@@ -34,13 +34,16 @@ def get_active_secrets():
             secrets.append(v)
     return secrets
 
-def console_log(message: str, debug_mode: bool = None):
+def console_log(msg: str, debug_mode: bool = None, active_secrets: list = None):
     # Se não for passado explicitamente, herda a configuração global do módulo (app.debug_mode)
     _debug_ativo = debug_mode if debug_mode is not None else globals().get('debug_mode', False)
     
     if not _debug_ativo:
         return
-    
+
+    if active_secrets is None:
+        active_secrets = get_active_secrets()
+
     if isinstance(msg, BaseException):
         msg_str = msg.__class__.__name__
     else:
@@ -64,8 +67,13 @@ def sanitize_input_string(text):
     return clean.strip()
 
 def escape_html_content(text):
-    if not isinstance(text, str): return ""
-    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+    if not isinstance(text, str): return text
+    return (text.replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;')
+            .replace('"', '&quot;')
+            .replace("'", "&#x27;")
+    )
 
 def parse_safe_quantity(val):
     try:
@@ -119,34 +127,49 @@ def is_pipeline_rate_limited(now, last, cooldown):
     return (now - last) < cooldown
 
 def regenerar_mensagem_individual(nome_lead, provider, p_log=None):
-    if "lista_leads" not in st.session_state or "payloads_comerciais" not in st.session_state:
-        return
-        
-    now = time.time()
-    cooldown_key = f"last_regen_{nome_lead}"
-    last_run = st.session_state.get(cooldown_key, 0)
-    
-    if now - last_run < 2.0:
-        if p_log: p_log(f"[RATE LIMIT] Regeneração ignorada para {nome_lead}")
-        return
-        
-    st.session_state[cooldown_key] = now
-    payloads = st.session_state.get("payloads_comerciais", {})
-    
-    if not isinstance(payloads, dict) or nome_lead not in payloads:
-        return
-        
-    target_payload = {nome_lead: payloads[nome_lead]}
-    
     try:
-        new_msg = MessageGeneratorService.gerar_mensagens_lote(target_payload, provider=provider, p_log=p_log)
-        if new_msg and nome_lead in new_msg:
-            mensagens = st.session_state.get("mensagens_geradas", {})
-            if isinstance(mensagens, dict):
-                mensagens[nome_lead] = new_msg[nome_lead]
-                st.session_state["mensagens_geradas"] = mensagens
+        # 1. Obter payloads
+        payloads = st.session_state.get("payloads_comerciais", {})
+
+        # 2. Validar se payloads é um dict ANTES de consumir cooldown ou acessar chaves
+        if not isinstance(payloads, dict):
+            if p_log:
+                p_log("Erro: Lead não encontrado no payload (estado corrompido).")
+            return
+
+        # 3. Validar explicitamente se o lead existe no payload
+        if nome_lead not in payloads:
+            if p_log:
+                p_log("Erro: Lead não encontrado no payload.")
+            return
+
+        # 4. Verificar o cooldown de 2 segundos
+        cooldown_key = f"last_regen_{nome_lead}"
+        now = time.time()
+        last_run = st.session_state.get(cooldown_key, 0)
+
+        if now - last_run < 2.0:
+            if p_log:
+                p_log("⚠️ Aguarde 2 segundos antes de tentar novamente.")
+            return
+
+        # 5. Registrar timestamp de cooldown SOMENTE se todas as validações passaram
+        st.session_state[cooldown_key] = now
+        target_payload={nome_lead:payloads[nome_lead]}
+        # 7. Executar a chamada original (fallback de provider é tratado dentro do serviço)
+        novas_mensagens = MessageGeneratorService.gerar_mensagens_lote(target_payload, provider=provider, p_log=p_log)
+
+        # 8. Preservar a atualização do session_state
+        if novas_mensagens and nome_lead in novas_mensagens:
+            if "mensagens_geradas" not in st.session_state or not isinstance(st.session_state["mensagens_geradas"], dict):
+                st.session_state["mensagens_geradas"] = {}
+            st.session_state["mensagens_geradas"][nome_lead] = novas_mensagens[nome_lead]
+
     except Exception as e:
-        if p_log: p_log(e)
+        if p_log:
+            p_log(f"Erro ao regenerar mensagem: {str(e)}")
+        elif 'console_log' in globals():
+            console_log(f"Erro ao regenerar mensagem: {str(e)}")
 
 # ==========================================
 # SESSION STATE

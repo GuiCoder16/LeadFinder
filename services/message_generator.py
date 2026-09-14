@@ -388,7 +388,7 @@ class MessageGeneratorService:
                  if payload.get("contexto_comercial", {}).get("intencao") == "BAIXA_OPORTUNIDADE":
                      msg_obj = MessageGeneratorService.gerar_mensagem(payload, provider="draft", p_log=None)
                  else:
-                     msg_obj = MessageGeneratorService.gerar_mensagem(payload, provider, p_log)
+                     msg_obj = MessageGeneratorService.gerar_mensagem(payload, provider=provider, p_log=p_log)
                      
                  mensagens[lead_nome] = msg_obj
                  items_processados += 1
