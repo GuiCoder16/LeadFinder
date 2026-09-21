@@ -39,7 +39,8 @@ class TestSprint69FailureRecoveryAndIntegrity(unittest.TestCase):
             {"id": "2", "tags": {"name": "Loja"}, "lat": 1.1, "lon": 1.1}
         ]
         leads = LeadProcessor.processar_osm(osm_data, "Categoria", "C", "E")
-        self.assertNotEqual(leads[0].nome, leads[1].nome)
+        self.assertEqual(leads[0].nome, leads[1].nome)
+        self.assertNotEqual(leads[0].id_unico, leads[1].id_unico)
 
     def test_e_duplicate_pipeline_trigger_is_bounded(self):
         st.session_state.is_processing = True

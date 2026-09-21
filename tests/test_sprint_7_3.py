@@ -5,6 +5,7 @@ import pandas as pd
 from unittest.mock import patch, MagicMock
 
 import app as leadfinder_app
+from models.lead import Lead
 from services.geocoding import GeocodingService
 from services.overpass import OverpassService
 from services.lead_processor import LeadProcessor
@@ -62,7 +63,7 @@ class TestSprint73EndToEnd(unittest.TestCase):
 
     def test_e2e_scoring_missing_data(self):
         """Campos nulos ou vazios no Scoring não causam exceção fatal, apenas score baixo."""
-        lead_vazio = [LeadProcessor.processar_osm([{"id": 999, "tags": {}}], "Restaurante", "A", "B")[0]]
+        lead_vazio = [Lead("Empresa com dados incompletos")]
         rankeados = LeadScoringService.avaliar_lote(lead_vazio)
         self.assertEqual(len(rankeados), 1)
         self.assertGreaterEqual(rankeados[0].score_final, 0) # Não quebrou.

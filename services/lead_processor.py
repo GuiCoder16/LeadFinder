@@ -36,7 +36,6 @@ class LeadProcessor:
         leads = []
         ids_processados = set()
         identities = set()
-        nomes_vistos = set()
 
         for elemento in dados_brutos:
             if not isinstance(elemento, dict):
@@ -47,6 +46,8 @@ class LeadProcessor:
                 continue
 
             nome = LeadProcessor._safe_text(tags.get("name"), default="")
+            if not nome:
+                continue
 
             raw_id = elemento.get("id")
             id_osm = LeadProcessor._safe_text(
@@ -69,18 +70,12 @@ class LeadProcessor:
             identity_source = f"{nome}|{lat}|{lon}|{id_osm}".encode("utf-8", errors="replace")
             id_unico = hashlib.sha256(identity_source).hexdigest()
 
-            # Colisão lógica extrema: preserva o nome natural para o primeiro
-            # e cria um sufixo somente quando duas identidades realmente colidem.
-            nome_exibicao = nome
-            if nome in nomes_vistos:
-                nome_exibicao = f"{nome} #{id_unico[:10]}"
+            # Colisão lógica extrema: ajusta apenas a identidade interna.
             if id_unico in identities:
                 id_unico = hashlib.sha256(
                     f"{identity_source.decode('utf-8', errors='replace')}|{len(leads)}".encode("utf-8")
                 ).hexdigest()
-                nome_exibicao = f"{nome} #{id_unico[:10]}"
             identities.add(id_unico)
-            nomes_vistos.add(nome)
 
             rua = LeadProcessor._safe_text(tags.get("addr:street"), default="")
             numero = LeadProcessor._safe_text(tags.get("addr:housenumber"), default="")
@@ -112,7 +107,7 @@ class LeadProcessor:
 
             try:
                 lead = Lead(
-                    nome=nome_exibicao,
+                    nome=nome,
                     categoria=LeadProcessor._safe_text(categoria),
                     telefone=telefone,
                     website=website,

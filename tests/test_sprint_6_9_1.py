@@ -61,7 +61,7 @@ class TestSprint691ProductionHardening(unittest.TestCase):
         leads = LeadProcessor.processar_osm(data, "Mecânica", "Guarulhos", "SP")
         self.assertEqual(len(leads), 2)
         self.assertNotEqual(leads[0].id_unico, leads[1].id_unico)
-        self.assertNotEqual(leads[0].nome, leads[1].nome)
+        self.assertEqual(leads[0].nome, leads[1].nome)
 
     def test_g_identity_is_deterministic(self):
         data = [{"id": "10", "type": "node", "lat": 1.2, "lon": 3.4, "tags": {"name": "Loja"}}]
